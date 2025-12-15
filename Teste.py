@@ -25,13 +25,13 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
             # --- Busca de Dados (YFinance) ---
             
             # Dados de Preço para Análise Quantitativa
-            dados_historicos = yf.download(ticker, period=f'{dias_historico}d', progress=False)
+            # CORREÇÃO: Adicionado auto_adjust=True para evitar o FutureWarning do yfinance
+            dados_historicos = yf.download(ticker, period=f'{dias_historico}d', progress=False, auto_adjust=True)
             
             # Dados Fundamentais para Análise Fundamentalista
             info = yf.Ticker(ticker).info
             
             # --- 2. ANÁLISE FUNDAMENTALISTA (Stock-Picking) ---
-            # Uso de valores estimados ou disponíveis.
             roe = info.get('returnOnEquity', np.nan) 
             pl = info.get('trailingPE', np.nan)
 
@@ -63,7 +63,6 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
                     passa_quant = False
             
             # --- 4. RESULTADO HÍBRIDO (Quantamental) ---
-            # A ação é ideal se Passa no Fundamental E Passa no Quantitativo
             score_final = passa_fundamental + passa_quant
             status_estrategia = "IDEAL (Alinhamento Total)" if score_final == 2 else ("Em Análise (Falta Timing ou Fundamento)" if score_final == 1 else "Fora dos Critérios")
 
@@ -85,9 +84,7 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
                 "Score Híbrido": score_final
             })
 
-        except Exception as e:
-            # Em caso de erro na busca de dados (pode acontecer com tickers menos líquidos)
-            # st.warning(f"Erro ao processar {ticker}: {e}") 
+        except Exception:
             resultados.append({
                 "Ticker": ticker,
                 "Preço Atual (R$)": "Erro",
@@ -101,7 +98,6 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
             })
 
     df_final = pd.DataFrame(resultados)
-    # Ordenar por Score, mostrando os melhores no topo
     df_final = df_final.sort_values(by="Score Híbrido", ascending=False)
     return df_final.drop(columns=["Score Híbrido"])
 
@@ -110,7 +106,6 @@ st.set_page_config(layout="wide", page_title="Clone Quantamental SPX - Python/St
 st.title("Sistema Quantamental Híbrido (Falcon/Patriot)")
 st.caption("Automatizando Stock-Picking e Market Timing em Python.")
 st.markdown("---")
-# 
 
 # Sidebar para Inputs do Usuário (Simula o controle do Gestor)
 st.sidebar.header("Definição da Estratégia")
@@ -140,11 +135,12 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
     
     if not melhores.empty:
         st.success(f"**{len(melhores)} Ações selecionadas!** - Alinhamento Total de Fundamento e Timing.")
-        st.dataframe(melhores.set_index('Ticker'))
+        # Utiliza set_index no DataFrame antes de exibir
+        st.dataframe(melhores.set_index('Ticker'), use_container_width=True)
     else:
         st.warning("Nenhuma ação passou em *todos* os critérios definidos.")
 
-    # Exibe a tabela completa
+    # Exibe a tabela completa (Estilizada)
     st.markdown("### Ranking Completo dos Ativos")
     
     # Adiciona cores para facilitar a visualização
@@ -156,16 +152,15 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
         color = 'background-color: #d4edda' if 'Sim' in val else 'background-color: #f8d7da'
         return color
 
-    # Aplica o set_index no DataFrame ANTES de aplicar o estilo (CORREÇÃO)
+    # Aplica o set_index no DataFrame ANTES de aplicar o estilo (CORREÇÃO DE ATRIBUTO)
     df_para_exibir = df_resultados.set_index('Ticker') 
     
-    # Aplica o estilo no DataFrame que já tem o índice correto
-    styled_df = df_para_exibir.style.applymap(color_status, subset=['Status Estratégia']) \
-                                   .applymap(color_passa, subset=['Passa Fund.', 'Passa Quant.'])
+    # Aplica o estilo no DataFrame, usando .map em vez de .applymap (CORREÇÃO DE FUTURITY WARNING)
+    styled_df = df_para_exibir.style.map(color_status, subset=['Status Estratégia']) \
+                                   .map(color_passa, subset=['Passa Fund.', 'Passa Quant.'])
 
     # Exibe o objeto Styler
     st.dataframe(styled_df, use_container_width=True)
     
     st.markdown("---")
     st.info("**Nota sobre dados:** Este script utiliza dados gratuitos do Yahoo Finance, que podem ter atrasos ou erros em dados fundamentais. Em um sistema profissional, APIs pagas e mais robustas seriam utilizadas.")
-
