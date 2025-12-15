@@ -25,7 +25,7 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
             # --- Busca de Dados (YFinance) ---
             
             # Dados de Preço para Análise Quantitativa
-            # CORREÇÃO: Adicionado auto_adjust=True para evitar o FutureWarning do yfinance
+            # CORREÇÃO: auto_adjust=True para evitar FutureWarning
             dados_historicos = yf.download(ticker, period=f'{dias_historico}d', progress=False, auto_adjust=True)
             
             # Dados Fundamentais para Análise Fundamentalista
@@ -135,8 +135,8 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
     
     if not melhores.empty:
         st.success(f"**{len(melhores)} Ações selecionadas!** - Alinhamento Total de Fundamento e Timing.")
-        # Utiliza set_index no DataFrame antes de exibir
-        st.dataframe(melhores.set_index('Ticker'), use_container_width=True)
+        # CORREÇÃO: Substituído use_container_width=True por width='stretch'
+        st.dataframe(melhores.set_index('Ticker'), width='stretch') 
     else:
         st.warning("Nenhuma ação passou em *todos* os critérios definidos.")
 
@@ -152,15 +152,16 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
         color = 'background-color: #d4edda' if 'Sim' in val else 'background-color: #f8d7da'
         return color
 
-    # Aplica o set_index no DataFrame ANTES de aplicar o estilo (CORREÇÃO DE ATRIBUTO)
+    # Aplica o set_index no DataFrame antes de aplicar o estilo
     df_para_exibir = df_resultados.set_index('Ticker') 
     
-    # Aplica o estilo no DataFrame, usando .map em vez de .applymap (CORREÇÃO DE FUTURITY WARNING)
+    # Aplica o estilo no DataFrame, usando .map() em vez de .applymap() (CORREÇÃO DE FUTURITY WARNING)
     styled_df = df_para_exibir.style.map(color_status, subset=['Status Estratégia']) \
                                    .map(color_passa, subset=['Passa Fund.', 'Passa Quant.'])
 
     # Exibe o objeto Styler
-    st.dataframe(styled_df, use_container_width=True)
+    # CORREÇÃO: Substituído use_container_width=True por width='stretch'
+    st.dataframe(styled_df, width='stretch')
     
     st.markdown("---")
     st.info("**Nota sobre dados:** Este script utiliza dados gratuitos do Yahoo Finance, que podem ter atrasos ou erros em dados fundamentais. Em um sistema profissional, APIs pagas e mais robustas seriam utilizadas.")
