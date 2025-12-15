@@ -39,6 +39,10 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
             passa_fundamental = (roe >= roe_minimo) and (pl <= pl_maximo) if not np.isnan(roe) and not np.isnan(pl) else False
 
             # --- 3. ANÁLISE QUANTITATIVA (Market Timing) ---
+            sinal_quant = "Dados históricos insuficientes"
+            passa_quant = False
+            ultimo_preco = np.nan
+            
             if not dados_historicos.empty:
                 # Calcula Média Móvel Simples (SMA)
                 dados_historicos.ta.sma(length=ma_periodo, append=True)
@@ -57,10 +61,6 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
                 else:
                     sinal_quant = "NEUTRO"
                     passa_quant = False
-            else:
-                sinal_quant = "Dados históricos insuficientes"
-                passa_quant = False
-                ultimo_preco = np.nan
             
             # --- 4. RESULTADO HÍBRIDO (Quantamental) ---
             # A ação é ideal se Passa no Fundamental E Passa no Quantitativo
@@ -86,7 +86,8 @@ def buscar_dados_e_analisar(tickers, dias_historico, roe_minimo, pl_maximo, ma_p
             })
 
         except Exception as e:
-            st.warning(f"Erro ao processar {ticker}: {e}")
+            # Em caso de erro na busca de dados (pode acontecer com tickers menos líquidos)
+            # st.warning(f"Erro ao processar {ticker}: {e}") 
             resultados.append({
                 "Ticker": ticker,
                 "Preço Atual (R$)": "Erro",
@@ -109,6 +110,7 @@ st.set_page_config(layout="wide", page_title="Clone Quantamental SPX - Python/St
 st.title("Sistema Quantamental Híbrido (Falcon/Patriot)")
 st.caption("Automatizando Stock-Picking e Market Timing em Python.")
 st.markdown("---")
+# 
 
 # Sidebar para Inputs do Usuário (Simula o controle do Gestor)
 st.sidebar.header("Definição da Estratégia")
@@ -144,6 +146,7 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
 
     # Exibe a tabela completa
     st.markdown("### Ranking Completo dos Ativos")
+    
     # Adiciona cores para facilitar a visualização
     def color_status(val):
         color = 'background-color: #d4edda' if 'IDEAL' in val else ('background-color: #fff3cd' if 'Em Análise' in val else '')
@@ -153,11 +156,16 @@ if st.button('EXECUTAR ANÁLISE HÍBRIDA'):
         color = 'background-color: #d4edda' if 'Sim' in val else 'background-color: #f8d7da'
         return color
 
-    styled_df = df_resultados.style.applymap(color_status, subset=['Status Estratégia']) \
+    # Aplica o set_index no DataFrame ANTES de aplicar o estilo (CORREÇÃO)
+    df_para_exibir = df_resultados.set_index('Ticker') 
+    
+    # Aplica o estilo no DataFrame que já tem o índice correto
+    styled_df = df_para_exibir.style.applymap(color_status, subset=['Status Estratégia']) \
                                    .applymap(color_passa, subset=['Passa Fund.', 'Passa Quant.'])
 
-    st.dataframe(styled_df.set_index('Ticker'), use_container_width=True)
+    # Exibe o objeto Styler
+    st.dataframe(styled_df, use_container_width=True)
     
     st.markdown("---")
-    st.info("**Nota sobre dados:** Este script utiliza dados gratuitos do Yahoo Finance, que podem não ser precisos para fundamentos. Em um sistema profissional, APIs pagas e mais robustas seriam utilizadas.")
+    st.info("**Nota sobre dados:** Este script utiliza dados gratuitos do Yahoo Finance, que podem ter atrasos ou erros em dados fundamentais. Em um sistema profissional, APIs pagas e mais robustas seriam utilizadas.")
 
